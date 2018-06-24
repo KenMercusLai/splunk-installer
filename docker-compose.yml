@@ -1,8 +1,8 @@
 version: '3'
 
 services:
-  server-ubuntu:
-    build: './server-ubuntu'
+  splunk-ubuntu:
+    build: './splunk-ubuntu'
     volumes:
       - ./installer:/opt
     ports:
@@ -13,4 +13,9 @@ services:
       - 9997 
       - 1514
       - 8088
-    command: /opt/server.sh
+    command: /opt/splunk.sh
+  splunk-debian:
+    build: './splunk-debian'
+    volumes:
+      - ./installer:/opt
+  

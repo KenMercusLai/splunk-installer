@@ -21,22 +21,17 @@ DISTRO=$(cat /etc/*-release)
 PACKAGE_TYPE='tgz'
 if [[ $DISTRO == *"Ubuntu"* ]]; then
   PACKAGE_TYPE='deb'
+elif [[ $DISTRO == *"Debian"* ]]; then
+  PACKAGE_TYPE='deb'
 elif [[ $DISTRO == *"Centos"* ]]; then
   PACKAGE_TYPE='rpm'
 fi
 
 # determine whether dependencies are available
 WGET = $(which wget)
+CURL = $(which wget)
 
-# install
 clear
-
-SPLUNK_PRODUCT="splunk"
-SPLUNK_VERSION="7.1.1"
-SPLUNK_BUILD="8f0ead9ec3db"
-SPLUNK_FILENAME="splunk-${SPLUNK_VERSION}-${SPLUNK_BUILD}-linux-2.6-amd64.${PACKAGE_TYPE}"
-echo "Determined package type is: "$PACKAGE_TYPE
-echo $SPLUNK_FILENAME
 
 export SPLUNK_HOME="/opt/splunk"
 SPLUNK_BACKUP_DEFAULT_ETC="/var/opt/splunk"
@@ -52,7 +47,7 @@ if [ $PACKAGE_TYPE == "deb" ] ; then
     # env setup
     ## make the "en_US.UTF-8" locale so splunk will be utf-8 enabled by default
     apt-get update
-    apt-get install -y --no-install-recommends apt-utils dialog locales
+    apt-get install -y --no-install-recommends apt-utils dialog locales procps
     echo "LC_ALL=en_US.UTF-8" >> /etc/environment
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
     echo "LANG=en_US.UTF-8" > /etc/locale.conf
@@ -64,11 +59,16 @@ if [ $PACKAGE_TYPE == "deb" ] ; then
     if [ -z "$WGET" ]; then
         apt-get install -y wget
     fi
+    if [ -z "$CURL" ]; then
+        apt-get install -y curl
+    fi
 
+    SPLUNK_URL=$(curl -s https://www.splunk.com/en_us/download/splunk-enterprise.html | grep -o "https[^\"]*.${PACKAGE_TYPE}" | head -n 1)
+    SPLUNK_FILENAME=${SPLUNK_URL##*/}
     mkdir -p ${SPLUNK_HOME}
-    # wget -O /tmp/${SPLUNK_FILENAME} https://download.splunk.com/products/${SPLUNK_PRODUCT}/releases/${SPLUNK_VERSION}/linux/${SPLUNK_FILENAME}
-    cp /opt/test.deb /tmp/${SPLUNK_FILENAME}
-    wget -O /tmp/${SPLUNK_FILENAME}.md5 https://download.splunk.com/products/${SPLUNK_PRODUCT}/releases/${SPLUNK_VERSION}/linux/${SPLUNK_FILENAME}.md5
+    wget -O /tmp/${SPLUNK_FILENAME} ${SPLUNK_URL}
+    # cp /opt/test.deb /tmp/${SPLUNK_FILENAME}
+    wget -O /tmp/${SPLUNK_FILENAME}.md5 ${SPLUNK_URL}.md5
     cd /tmp
     if [ "$(md5sum ${SPLUNK_FILENAME} | awk '{print $1}')" != "$(cat ${SPLUNK_FILENAME}.md5 | awk '{print $NF}')" ]; then
         echo "The MD5 of downloaded file is different from expected, please re-run the script to download it again."
@@ -84,13 +84,15 @@ if [ $PACKAGE_TYPE == "deb" ] ; then
     cp -R ${SPLUNK_HOME}/etc ${SPLUNK_BACKUP_DEFAULT_ETC}
     echo "OPTIMISTIC_ABOUT_FILE_LOCKING=1" >> ${SPLUNK_HOME}/etc/splunk-launch.conf
 
-    # rm -fR ${SPLUNK_HOME}/etc
     chown -R ${SPLUNK_USER}:${SPLUNK_GROUP} ${SPLUNK_HOME}
+    chown -R ${SPLUNK_USER}:${SPLUNK_GROUP} ${SPLUNK_HOME}/etc
     chown -R ${SPLUNK_USER}:${SPLUNK_GROUP} ${SPLUNK_BACKUP_DEFAULT_ETC}
-    # rm -rf /var/lib/apt/lists
     # remove tools that used in the setup if necessary
     if [ -z "$WGET" ]; then
         apt-get purge -y --auto-remove wget
+    fi
+    if [ -z "$CURL" ]; then
+        apt-get purge -y --auto-remove curl
     fi
 
     # filesystem locktest will fail on docker, it needs to be disabled on docker
@@ -100,10 +102,10 @@ if [ $PACKAGE_TYPE == "deb" ] ; then
     fi
 
     ${SPLUNK_HOME}/bin/splunk enable boot-start --accept-license
-    ${SPLUNK_HOME}/bin/splunk start --accept-license
+    ${SPLUNK_HOME}/bin/splunk start #--accept-license
     
     # write variables to shell profile
     echo "export LANGUAGE=\"en_US.UTF-8\"
     export LANG=\"en_US.UTF-8\"
-    export SPLUNK_HOME=\"/opt/splunk\"">>~/.bash_profile
+    export SPLUNK_HOME=/opt/splunk>>~/.bash_profile
 fi
