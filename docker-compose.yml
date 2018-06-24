@@ -5,3 +5,12 @@ services:
     build: './server-ubuntu'
     volumes:
       - ./installer:/opt
+    ports:
+      # Ports Splunk Web, Splunk Daemon, KVStore, Splunk Indexing Port, Network Input, HTTP Event Collector
+      - 8000
+      - 8089
+      - 8191
+      - 9997 
+      - 1514
+      - 8088
+    command: /opt/server.sh
