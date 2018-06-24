@@ -1,0 +1,7 @@
+version: '3'
+
+services:
+  server-ubuntu:
+    build: './server-ubuntu'
+    volumes:
+      - ./installer:/opt
