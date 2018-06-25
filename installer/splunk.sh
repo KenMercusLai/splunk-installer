@@ -56,13 +56,7 @@ useradd -r -m -g ${SPLUNK_GROUP} ${SPLUNK_USER}
 SPLUNK_URL=$(curl -s https://www.splunk.com/en_us/download/splunk-enterprise.html | grep -o "https[^\"]*.${PACKAGE_TYPE}" | head -n 1)
 SPLUNK_FILENAME=${SPLUNK_URL##*/}
 mkdir -p ${SPLUNK_HOME}
-# wget -O /tmp/${SPLUNK_FILENAME} ${SPLUNK_URL}
-if [ $PACKAGE_TYPE == "deb" ] ; then
-    cp /opt/test.deb /tmp/${SPLUNK_FILENAME}
-elif [ $PACKAGE_TYPE == "rpm" ] ; then
-    cp /opt/test.rpm /tmp/${SPLUNK_FILENAME}
-fi
-
+wget -O /tmp/${SPLUNK_FILENAME} ${SPLUNK_URL}
 wget -O /tmp/${SPLUNK_FILENAME}.md5 ${SPLUNK_URL}.md5
 cd /tmp
 if [ "$(md5sum ${SPLUNK_FILENAME} | awk '{print $1}')" != "$(cat ${SPLUNK_FILENAME}.md5 | awk '{print $NF}')" ]; then
