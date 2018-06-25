@@ -107,5 +107,5 @@ if [ $PACKAGE_TYPE == "deb" ] ; then
     # write variables to shell profile
     echo "export LANGUAGE=\"en_US.UTF-8\"
     export LANG=\"en_US.UTF-8\"
-    export SPLUNK_HOME=/opt/splunk>>~/.bash_profile
+    export SPLUNK_HOME=/opt/splunk">>~/.bash_profile
 fi
