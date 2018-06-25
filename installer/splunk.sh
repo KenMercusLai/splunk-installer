@@ -23,7 +23,7 @@ if [[ $DISTRO == *"Ubuntu"* ]]; then
   PACKAGE_TYPE='deb'
 elif [[ $DISTRO == *"Debian"* ]]; then
   PACKAGE_TYPE='deb'
-elif [[ $DISTRO == *"Centos"* ]]; then
+elif [[ $DISTRO == *"CentOS"* ]]; then
   PACKAGE_TYPE='rpm'
 fi
 
@@ -82,7 +82,7 @@ if [ $PACKAGE_TYPE == "deb" ] ; then
     rm /tmp/${SPLUNK_FILENAME}.md5 
     mkdir -p /var/opt/splunk 
     cp -R ${SPLUNK_HOME}/etc ${SPLUNK_BACKUP_DEFAULT_ETC}
-    echo "OPTIMISTIC_ABOUT_FILE_LOCKING=1" >> ${SPLUNK_HOME}/etc/splunk-launch.conf
+    # echo "OPTIMISTIC_ABOUT_FILE_LOCKING=1" >> ${SPLUNK_HOME}/etc/splunk-launch.conf
 
     chown -R ${SPLUNK_USER}:${SPLUNK_GROUP} ${SPLUNK_HOME}
     chown -R ${SPLUNK_USER}:${SPLUNK_GROUP} ${SPLUNK_HOME}/etc
@@ -102,10 +102,67 @@ if [ $PACKAGE_TYPE == "deb" ] ; then
     fi
 
     ${SPLUNK_HOME}/bin/splunk enable boot-start --accept-license
-    ${SPLUNK_HOME}/bin/splunk start #--accept-license
+    ${SPLUNK_HOME}/bin/splunk start
     
     # write variables to shell profile
     echo "export LANGUAGE=\"en_US.UTF-8\"
     export LANG=\"en_US.UTF-8\"
     export SPLUNK_HOME=/opt/splunk">>~/.bash_profile
+
+elif [ $PACKAGE_TYPE == "rpm" ] ; then
+    localedef -c -f UTF-8 -i en_US en_US.UTF-8
+    export LC_ALL=en_US.UTF-8
+
+    if [ -z "$WGET" ]; then
+        yum install wget -y
+    fi
+    if [ -z "$CURL" ]; then
+        yum install curl -y
+    fi
+
+    SPLUNK_URL=$(curl -s https://www.splunk.com/en_us/download/splunk-enterprise.html | grep -o "https[^\"]*.${PACKAGE_TYPE}" | head -n 1)
+    SPLUNK_FILENAME=${SPLUNK_URL##*/}
+    mkdir -p ${SPLUNK_HOME}
+    wget -O /tmp/${SPLUNK_FILENAME} ${SPLUNK_URL}
+    # cp /opt/test.rpm /tmp/${SPLUNK_FILENAME}
+    wget -O /tmp/${SPLUNK_FILENAME}.md5 ${SPLUNK_URL}.md5
+    cd /tmp
+    if [ "$(md5sum ${SPLUNK_FILENAME} | awk '{print $1}')" != "$(cat ${SPLUNK_FILENAME}.md5 | awk '{print $NF}')" ]; then
+        echo "The MD5 of downloaded file is different from expected, please re-run the script to download it again."
+        exit 1
+    fi
+
+    rpm -i ${SPLUNK_FILENAME}
+
+    ## post installation
+    rm /tmp/${SPLUNK_FILENAME} 
+    rm /tmp/${SPLUNK_FILENAME}.md5 
+    mkdir -p /var/opt/splunk 
+    cp -R ${SPLUNK_HOME}/etc ${SPLUNK_BACKUP_DEFAULT_ETC}
+    # echo "OPTIMISTIC_ABOUT_FILE_LOCKING=1" >> ${SPLUNK_HOME}/etc/splunk-launch.conf
+
+    chown -R ${SPLUNK_USER}:${SPLUNK_GROUP} ${SPLUNK_HOME}
+    chown -R ${SPLUNK_USER}:${SPLUNK_GROUP} ${SPLUNK_HOME}/etc
+    chown -R ${SPLUNK_USER}:${SPLUNK_GROUP} ${SPLUNK_BACKUP_DEFAULT_ETC}
+    # remove tools that used in the setup if necessary
+    if [ -z "$WGET" ]; then
+        yum erase wget -y
+    fi
+    if [ -z "$CURL" ]; then
+        yum erase curl -y
+    fi
+
+    # filesystem locktest will fail on docker, it needs to be disabled on docker
+    CONTROL_GROUPS=$(cat /proc/1/cgroup)
+    if [[ $CONTROL_GROUPS == *"docker"* ]]; then
+        echo "OPTIMISTIC_ABOUT_FILE_LOCKING = 1" >> ${SPLUNK_HOME}/etc/splunk-launch.conf
+    fi
+
+    ${SPLUNK_HOME}/bin/splunk enable boot-start --accept-license --no-prompt
+    ${SPLUNK_HOME}/bin/splunk start 
+    
+    # write variables to shell profile
+    echo "export LC_ALL=en_US.UTF-8
+    export SPLUNK_HOME=/opt/splunk">>~/.bash_profile
+    
 fi
