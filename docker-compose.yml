@@ -18,4 +18,8 @@ services:
     build: './splunk-debian'
     volumes:
       - ./installer:/opt
+  splunk-centos:
+    build: './splunk-centos'
+    volumes:
+      - ./installer:/opt
   
